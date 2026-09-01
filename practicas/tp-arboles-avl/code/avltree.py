@@ -17,7 +17,7 @@ def rotateLeft(AVL: AVLTree, node: AVLNode) -> AVLNode:
     # Hijo derecho de node
     right=node.rightnode
  
-    if right.bf == 1:
+    if right.bf == 1 and node.bf == -2:
         # Doble rotación: derecha sobre right
         bfNieto=right.leftnode.bf
         newR=rotateRight(AVL, right)  
@@ -74,7 +74,7 @@ def rotateRight(AVL: AVLTree, node: AVLNode) -> AVLNode:
     # Hijo izquierdo de node
     left=node.leftnode
  
-    if left.bf == -1:
+    if left.bf == -1 and node.bf == 2:
         # Doble rotación: izquierda sobre left
         bfNieto=left.rightnode.bf
         newL=rotateLeft(AVL, left)  
@@ -185,16 +185,16 @@ def insert(AVL:AVLTree, element, key:int)-> int:
         
     else:
         insertR(newNode, AVL.root)
-        reBalance(AVL)
+        rebalancePath(AVL, newNode.parent)
 
     return newNode.key
 
-def insertR(newNode: AVLNode, current: AVLNode):
+def insertR(newNode: AVLNode, current: AVLNode)->AVLNode:
     if newNode.key > current.key:
         if current.rightnode is None:
             current.rightnode=newNode
             newNode.parent=current
-            
+            current.bf-=1
             return
         else:
             insertR(newNode, current.rightnode)
@@ -203,12 +203,11 @@ def insertR(newNode: AVLNode, current: AVLNode):
         if current.leftnode is None:
             current.leftnode=newNode
             newNode.parent=current
+            current.bf+=1
             return newNode.key
         else:
             insertR(newNode, current.leftnode)
             return
-
-
 
 
 def delete(AVL:AVLTree, element)->int:
@@ -303,21 +302,25 @@ def generarAVL(treeA:AVLTree, treeB:AVLTree, keyX:int)->AVLTree:
     node=AVLNode()
     node.key=keyX
 
+    AVL=AVLTree() 
+
     if abs(htreeA-htreeB)<=1:
-        AVL=AVLTree()        
+               
         AVL.root=node
 
-        node.bf=htreeA-htreeB
         node.leftnode=treeA.root
-        node.leftnode.parent=node
+        if treeA.root is not None:
+            node.leftnode.parent=node
         node.rightnode=treeB.root
-        node.rightnode.parent=node
+        if treeB.root is not None:
+            node.rightnode.parent=node
 
         return AVL
 
     if htreeA>htreeB:
 
-        node.bf=treeB.root.bf-1
+        AVL.root=treeA.root
+
         node.rightnode=treeB.root
 
         if treeB.root is not None:
@@ -325,12 +328,15 @@ def generarAVL(treeA:AVLTree, treeB:AVLTree, keyX:int)->AVLTree:
 
         current=treeA.root
 
-        for _ in range(1, htreeA-htreeB):
+        hCurrent=htreeA
+        while hCurrent > htreeB+1:
+            hCurrent -= 1
+            if current.bf==1:
+                hCurrent -= 1
             current = current.rightnode
 
-        hCurrent=htreeA-htreeB
-
         node.leftnode=current.rightnode
+
         if current.rightnode is not None:
             current.rightnode.parent=node
 
@@ -346,11 +352,12 @@ def generarAVL(treeA:AVLTree, treeB:AVLTree, keyX:int)->AVLTree:
 
         else:
             node.bf=hCurrent-2 - (htreeB)
-            current.bf=(hCurrent) - (htreeB+1)
+            current.bf=(hCurrent-1) - (htreeB+1)
 
-        return treeA
     else:
-        node.bf=treeA.root.bf-1
+
+        AVL.root=treeB.root
+
         node.leftnode=treeA.root
 
         if treeA.root is not None:
@@ -358,12 +365,16 @@ def generarAVL(treeA:AVLTree, treeB:AVLTree, keyX:int)->AVLTree:
 
         current=treeB.root
 
-        for _ in range(1, htreeB-htreeA):
-            current = current.leftnode
+        hCurrent=htreeB
 
-        hCurrent=htreeB-htreeA
+        while hCurrent > htreeA+1:
+            hCurrent -= 1
+            if current.bf==-1:
+                hCurrent -= 1
+            current=current.leftnode
 
         node.rightnode=current.leftnode
+
         if current.leftnode is not None:
             current.leftnode.parent=node
 
@@ -371,17 +382,18 @@ def generarAVL(treeA:AVLTree, treeB:AVLTree, keyX:int)->AVLTree:
         node.parent=current
 
         if current.bf >= 0:
-            node.bf=hCurrent-1 - (htreeA)
+            node.bf=(htreeA) - (hCurrent-1)
             if current.bf == 1:
-                current.bf=(hCurrent-1) - (htreeA+1)
+                current.bf=(htreeA+1)-(hCurrent-1) 
             else:
-                current.bf=(hCurrent) - (htreeA+1)
+                current.bf=(htreeA+1)-(hCurrent)
 
         else:
-            node.bf=hCurrent-2 - (htreeA)
-            current.bf=(hCurrent) - (htreeA+1)
-    pass
+            node.bf=(htreeA)-(hCurrent-2)
+            current.bf=(htreeA+1)-(hCurrent-1)
 
+    rebalancePath(AVL, current)
+    return AVL
 
 
 def height(current:AVLNode)->int:
@@ -392,3 +404,467 @@ def height(current:AVLNode)->int:
         return 1 + height(current.rightnode)
     
     return 1 + height(current.leftnode)
+
+
+def rebalancePath(T:AVLTree, node:AVLNode):
+    if node is not None: 
+
+        # Desequilibrio hacia la izquierda
+        if node.bf==2:
+            node=rotateRight(T, node)
+            grew=False   # la rotacion restaura la altura previa
+
+        # Desequilibrio hacia la derecha
+        elif node.bf==-2:
+            node=rotateLeft(T, node)
+            grew=False
+
+        elif node.bf==0:
+            grew=False   # la rama corta se empareja, la altura no cambio
+
+        else: #node.bf quedo en 1 o -1
+            grew = True 
+            
+
+        if grew and node.parent is not None:
+            if node.parent.leftnode is node:
+                node.parent.bf += 1
+            else:
+                node.parent.bf -= 1
+
+            rebalancePath(T, node.parent)
+
+    return
+def check_bf(node):
+
+    if node is None:
+        return 0
+
+    hleft = check_bf(node.leftnode)
+    hright = check_bf(node.rightnode)
+
+    expected_bf = hleft - hright
+
+    assert node.bf == expected_bf, (
+        f"Error en nodo {node.key}: "
+        f"bf guardado = {node.bf}, "
+        f"bf esperado = {expected_bf}"
+    )
+
+    return 1 + max(hleft, hright)
+
+
+def check_avl(node):
+
+    if node is None:
+        return 0
+
+    hleft = check_avl(node.leftnode)
+    hright = check_avl(node.rightnode)
+
+    assert abs(hleft - hright) <= 1, (
+        f"El nodo {node.key} no cumple AVL: "
+        f"altura izquierda = {hleft}, "
+        f"altura derecha = {hright}"
+    )
+
+    return 1 + max(hleft, hright)
+
+
+def check_parent(node):
+
+    if node is None:
+        return
+
+    if node.leftnode is not None:
+        assert node.leftnode.parent == node
+        check_parent(node.leftnode)
+
+    if node.rightnode is not None:
+        assert node.rightnode.parent == node
+        check_parent(node.rightnode)
+
+
+def check_bst(node, minimo=None, maximo=None):
+
+    if node is None:
+        return
+
+    if minimo is not None:
+        assert node.key > minimo
+
+    if maximo is not None:
+        assert node.key < maximo
+
+    check_bst(node.leftnode, minimo, node.key)
+    check_bst(node.rightnode, node.key, maximo)
+
+
+def inorder(node):
+
+    if node is None:
+        return []
+
+    return (
+        inorder(node.leftnode)
+        + [node.key]
+        + inorder(node.rightnode)
+    )
+
+
+# ============================================================
+# TEST
+# ============================================================
+
+def test_generarAVL_A_mas_alto():
+
+    # ========================================================
+    # A
+    #
+    #          30
+    #         /  \
+    #       20    40
+    #            /
+    #           35
+    #
+    # altura = 3
+    # ========================================================
+
+    A = AVLTree()
+
+    n30 = AVLNode()
+    n30.key = 30
+    n30.bf = -1
+
+    n20 = AVLNode()
+    n20.key = 20
+    n20.bf = 0
+
+    n40 = AVLNode()
+    n40.key = 40
+    n40.bf = 1
+
+    n35 = AVLNode()
+    n35.key = 35
+    n35.bf = 0
+
+    n30.leftnode = n20
+    n30.rightnode = n40
+
+    n20.parent = n30
+    n40.parent = n30
+
+    n40.leftnode = n35
+    n35.parent = n40
+
+    A.root = n30
+
+
+    # ========================================================
+    # B
+    #
+    #       60
+    #
+    # altura = 1
+    # ========================================================
+
+    B = AVLTree()
+
+    n60 = AVLNode()
+    n60.key = 60
+    n60.bf = 0
+
+    B.root = n60
+
+
+    # ========================================================
+    # GENERAMOS EL AVL
+    #
+    # X = 50
+    #
+    # 30, 20, 40, 35 < 50 < 60
+    # ========================================================
+
+    T = generarAVL(A, B, 50)
+
+
+    # ========================================================
+    # DEBEN ESTAR TODOS LOS ELEMENTOS
+    # ========================================================
+
+    assert inorder(T.root) == [20, 30, 35, 40, 50, 60]
+
+
+    # ========================================================
+    # DEBE SER BST
+    # ========================================================
+
+    check_bst(T.root)
+
+
+    # ========================================================
+    # DEBE SER AVL
+    # ========================================================
+
+    check_avl(T.root)
+
+
+    # ========================================================
+    # LOS BF GUARDADOS DEBEN SER CORRECTOS
+    # ========================================================
+
+    check_bf(T.root)
+
+
+    # ========================================================
+    # LOS PARENT DEBEN SER CORRECTOS
+    # ========================================================
+
+    assert T.root.parent is None
+
+    check_parent(T.root)
+
+
+    print("TEST A MÁS ALTO: OK")
+
+
+# ============================================================
+# EJECUTAR TEST
+# ============================================================
+
+if __name__ == "__main__":
+
+    test_generarAVL_A_mas_alto()
+
+    print("TODOS LOS TESTS PASARON")
+def set_bf(node):
+
+    if node is None:
+        return 0
+
+    hleft = set_bf(node.leftnode)
+    hright = set_bf(node.rightnode)
+
+    node.bf = hleft - hright
+
+    return 1 + max(hleft, hright)
+
+
+def test_generarAVL_B_mas_alto():
+
+    # ========================================================
+    # A
+    #
+    #       10
+    #      /  \
+    #     5    15
+    #
+    # altura = 2
+    # ========================================================
+
+    A = AVLTree()
+
+    n10 = AVLNode()
+    n10.key = 10
+
+    n5 = AVLNode()
+    n5.key = 5
+
+    n15 = AVLNode()
+    n15.key = 15
+
+    n10.leftnode = n5
+    n10.rightnode = n15
+
+    n5.parent = n10
+    n15.parent = n10
+
+    A.root = n10
+
+    set_bf(A.root)
+
+
+    # ========================================================
+    # B
+    #
+    #                         100
+    #                       /     \
+    #                     60       140
+    #                    /  \     /   \
+    #                  40    80  120   160
+    #                 / \      \       /
+    #               30  50     90    150
+    #
+    # B es AVL y altura = 4
+    # ========================================================
+
+    B = AVLTree()
+
+    n100 = AVLNode()
+    n60 = AVLNode()
+    n140 = AVLNode()
+
+    n40 = AVLNode()
+    n80 = AVLNode()
+
+    n120 = AVLNode()
+    n160 = AVLNode()
+
+    n30 = AVLNode()
+    n50 = AVLNode()
+
+    n90 = AVLNode()
+
+    n150 = AVLNode()
+
+
+    n100.key = 100
+    n60.key = 60
+    n140.key = 140
+
+    n40.key = 40
+    n80.key = 80
+
+    n120.key = 120
+    n160.key = 160
+
+    n30.key = 30
+    n50.key = 50
+
+    n90.key = 90
+
+    n150.key = 150
+
+
+    # -------------------------
+    # enlaces
+    # -------------------------
+
+    n100.leftnode = n60
+    n100.rightnode = n140
+
+    n60.parent = n100
+    n140.parent = n100
+
+
+    n60.leftnode = n40
+    n60.rightnode = n80
+
+    n40.parent = n60
+    n80.parent = n60
+
+
+    n140.leftnode = n120
+    n140.rightnode = n160
+
+    n120.parent = n140
+    n160.parent = n140
+
+
+    n40.leftnode = n30
+    n40.rightnode = n50
+
+    n30.parent = n40
+    n50.parent = n40
+
+
+    n80.rightnode = n90
+    n90.parent = n80
+
+
+    n160.leftnode = n150
+    n150.parent = n160
+
+
+    B.root = n100
+
+
+    # ========================================================
+    # CALCULAMOS LOS BF AUTOMÁTICAMENTE
+    # ========================================================
+
+    set_bf(B.root)
+
+
+    # ========================================================
+    # PRIMERO VERIFICAMOS QUE B REALMENTE SEA AVL
+    # ========================================================
+
+    check_avl(B.root)
+    check_bf(B.root)
+
+
+    # ========================================================
+    # X
+    #
+    # Todos los elementos de A < 20
+    # Todos los elementos de B > 20
+    # ========================================================
+
+    T = generarAVL(A, B, 20)
+
+
+    # ========================================================
+    # TODOS LOS ELEMENTOS
+    # ========================================================
+
+    assert inorder(T.root) == [
+        5,
+        10,
+        15,
+        20,
+        30,
+        40,
+        50,
+        60,
+        80,
+        90,
+        100,
+        120,
+        140,
+        150,
+        160
+    ]
+
+
+    # ========================================================
+    # BST
+    # ========================================================
+
+    check_bst(T.root)
+
+
+    # ========================================================
+    # AVL
+    # ========================================================
+
+    check_avl(T.root)
+
+
+    # ========================================================
+    # BF
+    # ========================================================
+
+    check_bf(T.root)
+
+
+    # ========================================================
+    # PARENT
+    # ========================================================
+
+    assert T.root.parent is None
+
+    check_parent(T.root)
+
+
+    print("TEST B MÁS ALTO: OK")
+
+# ============================================================
+# EJECUTAR
+# ============================================================
+
+if __name__ == "__main__":
+
+    test_generarAVL_B_mas_alto()
+
+    print("TODOS LOS TESTS PASARON")
